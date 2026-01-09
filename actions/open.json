@@ -1,0 +1,20 @@
+{
+	"actions": [
+		{
+			"type": "create",
+			"name": "jacob",
+			"x": 0,
+			"y": 0,
+			"z": 0,
+			"image": "walls/bober.bmp"
+        },
+        {
+			"type": "create",
+			"name": "ghetto1",
+			"x": -1.5,
+			"y": 0,
+			"z": -0.7,
+			"image": "walls/joker_tattoo.bmp"
+		}
+    ]
+}
