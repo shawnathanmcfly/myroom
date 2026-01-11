@@ -1,5 +1,7 @@
 #include "image.h"
 
+//yay
+
 SDL_Surface *
 LoadImage (const char* fn)
 {
