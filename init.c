@@ -145,8 +145,6 @@ RG_Init (
 		context->device = NULL;
 		SDL_free (context);
 		context = NULL;
-		
-		return NULL;
 	}
 	
 	return context;
@@ -188,7 +186,7 @@ RG_Quit (Context *context)
 char *
 RG_GetAssetFile (const char *subfolder, const char *filename)
 {
-	static char absPath[1000];
+	static char absPath[2000];
 	SDL_snprintf (
 		absPath,
 		sizeof(absPath),

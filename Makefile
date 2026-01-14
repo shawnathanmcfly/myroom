@@ -23,7 +23,7 @@ SHADER_LIST = $(wildcard shaders/*.hlsl.*)
 all : $(EXE_NAME)
 
 $(EXE_NAME): $(OBJS) $(SRCS) $(DXIL_SHADERS) $(SPIRV_SHADERS)
-	g++ -o $(EXE_NAME) $(OBJS) $(AOBJS) $(INC) $(LIB) $(WIN) -g -Wno-narrowing -lSDL3 -lSDL3_image -lSDL3_mixer -lglm -lSDL3_ttf -ljson-c -lcglm
+	g++ -o $(EXE_NAME) $(OBJS) $(AOBJS) $(INC) $(LIB) $(WIN) -g -Wno-narrowing -lSDL3 -lSDL3_image -lSDL3_mixer -lSDL3_ttf -ljson-c -lcglm
 	
 $(OBJS):
 	g++ $(INC) $(LIB) $(WIN) -g -Wno-narrowing -lSDL3 -lSDL3_image -lSDL3_mixer -lSDL3_ttf -lcglm -c $(SRCS_CPP)

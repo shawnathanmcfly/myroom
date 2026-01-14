@@ -7,13 +7,13 @@
 #include <cglm/cglm.h>
 #include <cglm/struct.h>
 #include <math.h>
-#include "cgltf.h"
 #include "init.h"
 #include "image.h"
 #include "shader.h"
 #include "gpu.h"
 #include "sound.h"
 #include "action.h"
+#include "sprite.h"
 
 #define GAME_NAME "My Room"
 
@@ -94,37 +94,15 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 		0
 	);
 	
-	//LOAD MODELS BITCH
-	cgltf_options options;
-	SDL_memset (&options, 0, sizeof (cgltf_options));
-	cgltf_data *data = nullptr;
-	cgltf_result res = cgltf_parse_file (
-		&options,
-		RG_GetAssetFile ("models", "sedan-sports.glb"),
-		&data
-	);
-	
-	if (res == cgltf_result_success && data->file_type == cgltf_file_type_glb)
-	{
-		
-		SDL_Log ("===== TIME TO GET 3D MODEL INFO FAGGIT! =====");
-		for (Uint64 i = 0; i < data->buffers_count; i++)
-		{
-			SDL_Log ("- BUFFER SIZE FAGGIT: %d", data->buffers[i].size);
-			SDL_Log ("- URI FAGGIT: %s", data->buffers[i].uri);
-		}
-		
-		cgltf_free (data);
-		data = nullptr;
-	}
+	RG_SpriteLoad ("sedan-sports.glb");
 	
 	
 	//Vertex buffer attributesand buffers
 	VERTEX vertices[] = {
-		{.pos = vec3s{-0.5, 0.5, 0}, .color = RGBA{255, 255, 255, 255}, .uv = vec2s{0, 0}},
-		{.pos = vec3s{0.5, 0.5, 0}, .color = RGBA{255, 255, 255, 255}, .uv = vec2s{1, 0}},
-		{.pos = vec3s{-0.5, -0.5, 0}, .color = RGBA{255, 255, 255, 255}, .uv = vec2s{0, 1}},
-		{.pos = vec3s{0.5, -0.5, 0}, .color = RGBA{255, 255, 255, 255}, .uv = vec2s{1, 1}}
+		{.pos{-0.5, 0.5, 0}, .color{255, 255, 255, 255}, .uv{0, 0}},
+		{.pos{0.5, 0.5, 0}, .color{255, 255, 255, 255}, .uv{1, 0}},
+		{.pos{-0.5, -0.5, 0}, .color{255, 255, 255, 255}, .uv{0, 1}},
+		{.pos{0.5, -0.5, 0}, .color{255, 255, 255, 255}, .uv{1, 1}}
 	};
 	Uint32 indices[] = {
 		0, 1, 2,
@@ -276,7 +254,7 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 	SDL_ReleaseGPUShader (context->device, fShader);
 	SDL_DestroySurface (surface);
 	
-	RG_PlaySong (context, "nibba1.ogg");
+	//RG_PlaySong (context, "nibba1.ogg");
 	
 	//pass context to next callback
 	*appstate = context;
