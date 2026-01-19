@@ -77,7 +77,7 @@ RG_BindBuffers (
 	SDL_BindGPUIndexBuffer (renderPass, &(SDL_GPUBufferBinding){
 		.buffer = indexBuff,
 		.offset = 0
-	}, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+	}, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 	
 	SDL_BindGPUFragmentSamplers (renderPass, 0, &(SDL_GPUTextureSamplerBinding){
 		.texture = textureBuff,

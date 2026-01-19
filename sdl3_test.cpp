@@ -13,7 +13,7 @@
 #include "gpu.h"
 #include "sound.h"
 #include "action.h"
-#include "sprite.h"
+#include "glb.h"
 
 #define GAME_NAME "My Room"
 
@@ -24,24 +24,14 @@ typedef struct
 	mat4s mvp;
 } UBO;
 
-typedef struct
-{
-	Uint8 r, g, b, a;
-} RGBA;
-
-typedef struct
-{
-	vec3s SDL_ALIGNED (8) pos;
-	RGBA color;
-	vec2s uv;
-} VERTEX;
-
 SDL_AppResult
 SDL_AppInit (void **appstate, int argc, char *argv[])
 {
 	Context *context = nullptr;
 	Actions *actions = nullptr;
 	vector<Action> action_list;
+	vector<VERTEX> vertex_list;
+	vector<Uint16> indice_list;
 	
 	RG_SetMetadata (
 		"https://www.retardedgames.com",
@@ -74,8 +64,6 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 		SDL_Log ("Object name to be created: %s", action.create.name);
 	}
 	
-	
-	
 	//SHADERS
 	SDL_GPUShader *vShader = RG_LoadShader (
 		context->device,
@@ -94,27 +82,19 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 		0
 	);
 	
-	RG_SpriteLoad ("sedan-sports.glb");
+	GLB *faggit_car = RG_GLBOpen ("sedan-sports.glb");
+	if (faggit_car)
+	{
+		RG_GLBClose (faggit_car); faggit_car = nullptr;
+	}
 	
-	
-	//Vertex buffer attributesand buffers
-	VERTEX vertices[] = {
-		{.pos{-0.5, 0.5, 0}, .color{255, 255, 255, 255}, .uv{0, 0}},
-		{.pos{0.5, 0.5, 0}, .color{255, 255, 255, 255}, .uv{1, 0}},
-		{.pos{-0.5, -0.5, 0}, .color{255, 255, 255, 255}, .uv{0, 1}},
-		{.pos{0.5, -0.5, 0}, .color{255, 255, 255, 255}, .uv{1, 1}}
-	};
-	Uint32 indices[] = {
-		0, 1, 2,
-		2, 1, 3
-	};
 	
 	SDL_Surface *surface = LoadImage ("walls/bober.bmp");
 	if (!surface)
 		SDL_Log ("ERROR: %s", SDL_GetError ());
 	
-	Uint32 verticeBuffSize = SDL_arraysize (vertices) * sizeof (vertices[0]);
-	Uint32 indexBuffSize = SDL_arraysize (indices) * sizeof (indices[0]);
+	Uint32 verticeBuffSize = vertex_list.size () * sizeof (VERTEX);
+	Uint32 indexBuffSize = indice_list.size () * sizeof (Uint16);
 	Uint32 pixelBuffSize = surface->w * surface->h * 4;
 	
 	RG_GenerateBuffers (
@@ -132,12 +112,12 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 	);
 	SDL_memcpy (
 		transferMem,
-		vertices,
+		vertex_list.data (),
 		verticeBuffSize
 	);
 	SDL_memcpy (
 		transferMem + verticeBuffSize,
-		indices,
+		indice_list.data (),
 		indexBuffSize
 	);
 	SDL_UnmapGPUTransferBuffer (context->device, context->transferBuffer);
@@ -389,7 +369,7 @@ SDL_AppIterate (void *appstate)
 		
 		//Draw the shit!
 		//SDL_DrawGPUPrimitives (renderPass, 3, 1, 0, 0);
-		SDL_DrawGPUIndexedPrimitives (renderPass, 6, 1, 0, 0, 0);
+		SDL_DrawGPUIndexedPrimitives (renderPass, 6264, 1, 0, 0, 0);
 		SDL_EndGPURenderPass (renderPass);
 	}
 	
