@@ -1,5 +1,7 @@
 #include <SDL3/SDL.h>
 #include <json-c/json.h>
+#include <cglm/cglm.h>
+#include <cglm/struct.h>
 #include "init.h"
 
 #define ACCESSOR_COMPONENT_TYPE_S8				5120
@@ -19,7 +21,7 @@
 #define MESH_PRIMITIVE_TYPE_POSITION			0
 #define MESH_PRIMITIVE_TYPE_NORMAL				1
 #define MESH_PRIMITIVE_TYPE_TANGENT				2
-#define MESH_PRIMITIVE_TYPE_TEXTCOORD_0			4
+#define MESH_PRIMITIVE_TYPE_TEXTCOORD_0			3
 
 #define BUFFERVIEW_TARGET_ARRAY_BUFFER			34962
 #define BUFFERVIEW_TARGET_ELEMENT_ARRAY_BUFFER	34963
@@ -29,16 +31,22 @@ typedef struct {
 	Uint8 *bin;
 } Buffer;
 
-typedef union {
-	Uint32 position, normal, tangent;
-	Uint32 texcoord_0;
+typedef struct {
+	
+	Uint8 type;
+	
+	union {
+		Uint32 position, normal, tangent;
+		Uint32 texcoord_0;
+	};
+	
 } Attribute;
 
 typedef struct
 {
 	char *name;
-	Attribute attr;
-	Uint32 indices_index, material_index, attr_type;
+	Attribute attrs;
+	Uint32 indices_index, material_index,;
 	
 } Mesh;
 
@@ -105,6 +113,8 @@ get_meshes (json_object *json)
 		meshes[i].indices_index = json_object_get_uint64 (e);
 		json_object_object_get_ex (prim, "material", &e);
 		meshes[i].material_index = json_object_get_uint64 (e);
+		
+		meshes[i]->attrs = (Attribute *)SDL_malloc (sizeof (Attribute));
 		
 		/* Iterate over mesh primitives attributes */
 		json_object_object_get_ex (prim, "attributes", &attrs);
@@ -400,4 +410,31 @@ RG_GLBClose (GLB *glb)
 	
 	SDL_free (glb->buffers); glb->buffers = NULL;
 	SDL_free (glb); glb = NULL;
+}
+
+vec3s *
+RG_GLBGetMeshPositionsByName (GLB *glb, const char *name)
+{
+	vec3s *position_list = NULL;
+	
+	bool found = false;
+	for (int i = 0; i < glb->meshes_count; i++)
+	{
+		if (!SDL_strcasecmp (glb->meshes[i].name, name))
+		{
+			SDL_Log ("MESH ATTR TYPE: %d", glb->meshes[i].attr_type);
+			found = true;
+			break;
+		}
+	}
+	
+	if (!found)
+	{
+		SDL_Log ("Mesh not found with name %s", name);
+		return NULL;
+	}
+	
+	
+	
+	return position_list;
 }

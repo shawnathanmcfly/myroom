@@ -5,6 +5,8 @@ extern "C" {
 #endif
 
 #include <SDL3/SDL.h>
+#include <cglm/cglm.h>
+#include <cglm/struct.h>
 
 typedef struct
 {

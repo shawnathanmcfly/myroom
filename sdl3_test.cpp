@@ -13,6 +13,7 @@
 #include "gpu.h"
 #include "sound.h"
 #include "action.h"
+#include "vertex.h"
 #include "glb.h"
 
 #define GAME_NAME "My Room"
@@ -30,7 +31,7 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 	Context *context = nullptr;
 	Actions *actions = nullptr;
 	vector<Action> action_list;
-	vector<VERTEX> vertex_list;
+	vector<Vertex> vertex_list;
 	vector<Uint16> indice_list;
 	
 	RG_SetMetadata (
@@ -82,10 +83,10 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 		0
 	);
 	
-	GLB *faggit_car = RG_GLBOpen ("sedan-sports.glb");
+	Vertex *faggit_car = RG_VertexGetFromGLB  ("sedan-sports.glb");
 	if (faggit_car)
 	{
-		RG_GLBClose (faggit_car); faggit_car = nullptr;
+		SDL_Log ("Great Success.");
 	}
 	
 	
@@ -93,7 +94,7 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 	if (!surface)
 		SDL_Log ("ERROR: %s", SDL_GetError ());
 	
-	Uint32 verticeBuffSize = vertex_list.size () * sizeof (VERTEX);
+	Uint32 verticeBuffSize = vertex_list.size () * sizeof (Vertex);
 	Uint32 indexBuffSize = indice_list.size () * sizeof (Uint16);
 	Uint32 pixelBuffSize = surface->w * surface->h * 4;
 	
@@ -204,7 +205,7 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 			.vertex_buffer_descriptions = (SDL_GPUVertexBufferDescription[]){
 				{
 					.slot = 0,
-					.pitch = sizeof (VERTEX),
+					.pitch = sizeof (Vertex),
 					.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
 					.instance_step_rate = 0
 					
