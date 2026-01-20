@@ -428,6 +428,9 @@ Position *
 RG_GLBGetMeshPositions (GLB *glb, Uint32 i)
 {
 	Position *positions = NULL;
+	Uint8 *buff = NULL;
+	bool found = false;
+	Uint32 bv, ca;
 	
 	if (glb->mesh_count < 1)
 	{
@@ -441,13 +444,36 @@ RG_GLBGetMeshPositions (GLB *glb, Uint32 i)
 		return NULL;
 	}
 	
-	for (Uint32 ca = 0; ca < glb->meshes[i].attr_count; ca++)
+	for (ca = 0; ca < glb->meshes[i].attr_count; ca++)
 	{
 		if (glb->meshes[i].attrs[ca].type == MESH_PRIMITIVE_TYPE_POSITION)
 		{
-			SDL_Log ("FOUND POSITION DATA!!");
+			bv = glb->meshes[i].attrs[ca].position;
+			found = true;
+			break;
 		}
 	}
+	
+	if (!found)
+	{
+		SDL_Log ("No position data found in mesh.");
+		return NULL;
+	}
+	
+	Uint32 b = glb->bufferviews[bv].buffer_index;
+	Uint64 bo = glb->bufferviews[bv].byte_offset;
+	Uint64 len = (glb->bufferviews[bv].byte_length / 12) / 3;
+	
+	SDL_Log ("MESH NAME: %s", glb->meshes[i].name);
+	SDL_Log ("POS OFFSET: %d", bo);
+	SDL_Log ("POS LEN: %d", len);
+	
+	SDL_Log ("SIZE OF DOUBLE: %d", sizeof (float));
+	
+	buff = ((Uint8 *)glb->buffers[b].bin + bo);
+	
+	for (bo = 0; bo < glb->buffers[b].bin_len; bo += 3)
+		SDL_Log ("X: %f Y: %f Z: %f", *((float *)buff + bo), *((float *)buff + bo + 1), *((float *)buff + bo + 2));
 
 	return positions;
 }
