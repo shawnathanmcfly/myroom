@@ -1,7 +1,5 @@
 #include <SDL3/SDL.h>
 #include <json-c/json.h>
-#include <cglm/cglm.h>
-#include <cglm/struct.h>
 #include "init.h"
 
 #define ACCESSOR_COMPONENT_TYPE_S8				5120
@@ -27,6 +25,10 @@
 #define BUFFERVIEW_TARGET_ELEMENT_ARRAY_BUFFER	34963
 
 typedef struct {
+	double x, y, z;
+} Position;
+
+typedef struct {
 	Uint64 bin_len;
 	Uint8 *bin;
 } Buffer;
@@ -45,8 +47,8 @@ typedef struct {
 typedef struct
 {
 	char *name;
-	Attribute attrs;
-	Uint32 indices_index, material_index,;
+	Attribute *attrs;
+	Uint32 indices_index, material_index, attr_count;
 	
 } Mesh;
 
@@ -60,7 +62,7 @@ typedef struct
 
 typedef struct
 {
-	Uint64 buffer_index;
+	Uint32 buffer_index;
 	Uint64 byte_offset;
 	Uint64 byte_length;
 	Uint8  target;
@@ -68,7 +70,7 @@ typedef struct
 
 typedef struct
 {
-	Uint64 accessor_count, bufferview_count, meshes_count, buffer_count;
+	Uint32 accessor_count, bufferview_count, mesh_count, buffer_count;
 	Accessor *accessors;
 	BufferView *bufferviews;
 	Mesh *meshes;
@@ -114,12 +116,14 @@ get_meshes (json_object *json)
 		json_object_object_get_ex (prim, "material", &e);
 		meshes[i].material_index = json_object_get_uint64 (e);
 		
-		meshes[i]->attrs = (Attribute *)SDL_malloc (sizeof (Attribute));
-		
 		/* Iterate over mesh primitives attributes */
 		json_object_object_get_ex (prim, "attributes", &attrs);
+		meshes[i].attr_count = json_object_object_length (attrs);
+		meshes[i].attrs = 
+		   (Attribute *)SDL_malloc (sizeof (Attribute) * meshes[i].attr_count);
 		it = json_object_iter_begin (attrs);
 		it_end = json_object_iter_end (attrs);
+		Uint32 ca = 0;
 		while (!json_object_iter_equal (&it, &it_end))
 		{
 			const char *name = json_object_iter_peek_name (&it);
@@ -127,29 +131,30 @@ get_meshes (json_object *json)
 			
 			if (!SDL_strcasecmp ("POSITION", name))
 			{
-				meshes[i].attr.position = json_object_get_uint64 (e);
-				meshes[i].attr_type = MESH_PRIMITIVE_TYPE_POSITION;
+				meshes[i].attrs[ca].position = json_object_get_uint64 (e);
+				meshes[i].attrs[ca].type = MESH_PRIMITIVE_TYPE_POSITION;
 			}
 			else if (!SDL_strcasecmp ("NORMAL", name))
 			{
-				meshes[i].attr.normal = json_object_get_uint64 (e);
-				meshes[i].attr_type = MESH_PRIMITIVE_TYPE_NORMAL;
+				meshes[i].attrs[ca].normal = json_object_get_uint64 (e);
+				meshes[i].attrs[ca].type = MESH_PRIMITIVE_TYPE_NORMAL;
 			}
 			else if (!SDL_strcasecmp ("TANGENT", name))
 			{
-				meshes[i].attr.tangent = json_object_get_uint64 (e);
-				meshes[i].attr_type = MESH_PRIMITIVE_TYPE_TANGENT;
+				meshes[i].attrs[ca].tangent = json_object_get_uint64 (e);
+				meshes[i].attrs[ca].type = MESH_PRIMITIVE_TYPE_TANGENT;
 			}
 			else if (!SDL_strcasecmp ("TEXCOORD_0", name))
 			{
-				meshes[i].attr.texcoord_0 = json_object_get_uint64 (e);
-				meshes[i].attr_type = MESH_PRIMITIVE_TYPE_TEXTCOORD_0;
+				meshes[i].attrs[ca].texcoord_0 = json_object_get_uint64 (e);
+				meshes[i].attrs[ca].type = MESH_PRIMITIVE_TYPE_TEXTCOORD_0;
 			}
 			else
 			{
 				SDL_Log ("Unknown Mesh primitive attrivute %s", name);
 			}
 			
+			ca++;
 			json_object_iter_next (&it);
 		}
 	}
@@ -276,7 +281,7 @@ RG_GLBOpen (const char *filename)
 	char *json_data = NULL;
 	void *bin_data = NULL;
 	void *data = NULL;
-	GLB *glb = (GLB *)SDL_malloc (sizeof (GLB));
+	GLB *glb = (GLB *)SDL_calloc (1, sizeof (GLB));
 	
 	if (!glb) fail = true;
 	
@@ -369,7 +374,7 @@ RG_GLBOpen (const char *filename)
 		glb->bufferviews = get_bufferviews (object);
 		
 		json_object_object_get_ex (json, "meshes", &object);
-		glb->meshes_count = json_object_array_length (object);
+		glb->mesh_count = json_object_array_length (object);
 		glb->meshes = get_meshes (object);
 		
 		/* Currently only supports 1 buffer */
@@ -394,9 +399,10 @@ RG_GLBClose (GLB *glb)
 	if(!glb) return;
 	
 	/* Mesh name was dynamically allocated */
-	for (int i = 0; i < glb->meshes_count; i++)
+	for (int i = 0; i < glb->mesh_count; i++)
 	{
 		SDL_free (glb->meshes[i].name); glb->meshes[i].name = NULL;
+		SDL_free (glb->meshes[i].attrs); glb->meshes[i].attrs = NULL;
 	}
 	
 	SDL_free (glb->meshes); glb->meshes = NULL;
@@ -412,29 +418,36 @@ RG_GLBClose (GLB *glb)
 	SDL_free (glb); glb = NULL;
 }
 
-vec3s *
-RG_GLBGetMeshPositionsByName (GLB *glb, const char *name)
+Uint32
+RG_GLBGetMeshCount (GLB *glb)
 {
-	vec3s *position_list = NULL;
+	return glb->mesh_count;
+}
+
+Position *
+RG_GLBGetMeshPositions (GLB *glb, Uint32 i)
+{
+	Position *positions = NULL;
 	
-	bool found = false;
-	for (int i = 0; i < glb->meshes_count; i++)
+	if (glb->mesh_count < 1)
 	{
-		if (!SDL_strcasecmp (glb->meshes[i].name, name))
-		{
-			SDL_Log ("MESH ATTR TYPE: %d", glb->meshes[i].attr_type);
-			found = true;
-			break;
-		}
-	}
-	
-	if (!found)
-	{
-		SDL_Log ("Mesh not found with name %s", name);
+		SDL_Log ("GLB doesn't have any Meshes.");
 		return NULL;
 	}
 	
+	if (i > glb->mesh_count - 1)
+	{
+		SDL_Log ("Mesh index out of bounds.");
+		return NULL;
+	}
 	
-	
-	return position_list;
+	for (Uint32 ca = 0; ca < glb->meshes[i].attr_count; ca++)
+	{
+		if (glb->meshes[i].attrs[ca].type == MESH_PRIMITIVE_TYPE_POSITION)
+		{
+			SDL_Log ("FOUND POSITION DATA!!");
+		}
+	}
+
+	return positions;
 }

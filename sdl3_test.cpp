@@ -83,10 +83,11 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 		0
 	);
 	
-	Vertex *faggit_car = RG_VertexGetFromGLB  ("sedan-sports.glb");
+	GLB *faggit_car = RG_GLBOpen  ("sedan-sports.glb");
 	if (faggit_car)
 	{
-		SDL_Log ("Great Success.");
+		SDL_Log ("MESH COUNT: %d", RG_GLBGetMeshCount (faggit_car));
+		Position *positions = RG_GLBGetMeshPositions (faggit_car, 0);
 	}
 	
 	

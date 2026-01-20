@@ -4,10 +4,9 @@
 extern "C" {
 #endif
 
-#include <cglm/cglm.h>
-#include <cglm/struct.h>
-
 typedef struct GLB GLB;
+typedef struct Mesh Mesh;
+typedef struct Position Position;
 
 GLB *
 RG_GLBOpen (const char *filename);
@@ -15,8 +14,11 @@ RG_GLBOpen (const char *filename);
 void
 RG_GLBClose (GLB *glb);
 
-vec3s *
-RG_GLBGetMeshPositionsByName (GLB *glb, const char *name);
+Uint32
+RG_GLBGetMeshCount (GLB *glb);
+
+Position *
+RG_GLBGetMeshPositions (GLB *glb, Uint32 i);
 
 #ifdef __cplusplus
 }
