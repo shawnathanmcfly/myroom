@@ -14,7 +14,7 @@ typedef struct {
 	MIX_Mixer *mixer;
 	SDL_GPUGraphicsPipeline *pipeline;
 	SDL_GPUBuffer *vertexBuffer, *indexBuffer;
-	SDL_GPUTexture *textureBuffer;
+	SDL_GPUTexture *textureBuffer, *depthBuffer;
 	SDL_GPUTransferBuffer *transferBuffer, *texTransferBuffer;
 	SDL_GPUSampler *sampler;
 	float x, y, z;

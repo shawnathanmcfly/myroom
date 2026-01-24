@@ -10,6 +10,8 @@ RG_GenerateBuffers(
 	Uint32 textureHeight
 )
 {
+	Uint32 win_w, win_h;
+	
 	(*context)->vertexBuffer = SDL_CreateGPUBuffer (
 		(*context)->device,
 		&(SDL_GPUBufferCreateInfo){
@@ -41,6 +43,20 @@ RG_GenerateBuffers(
 			.usage =  SDL_GPU_TEXTUREUSAGE_SAMPLER,
 			.width = textureWidth,
 			.height= textureHeight,
+			.layer_count_or_depth = 1,
+			.num_levels = 1
+		}
+	);
+	
+	SDL_GetWindowSize ((*context)->window, &win_w, &win_h);
+	(*context)->depthBuffer = SDL_CreateGPUTexture (
+		(*context)->device,
+		&(SDL_GPUTextureCreateInfo){
+			.type = SDL_GPU_TEXTURETYPE_2D,
+			.format = SDL_GPU_TEXTUREFORMAT_D24_UNORM,
+			.usage =  SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+			.width = win_w,
+			.height= win_h,
 			.layer_count_or_depth = 1,
 			.num_levels = 1
 		}

@@ -6,7 +6,6 @@ extern "C" {
 
 typedef struct GLB GLB;
 typedef struct Mesh Mesh;
-typedef struct Position Position;
 
 GLB *
 RG_GLBOpen (const char *filename);
@@ -17,8 +16,14 @@ RG_GLBClose (GLB *glb);
 Uint32
 RG_GLBGetMeshCount (GLB *glb);
 
-Position *
-RG_GLBGetMeshPositions (GLB *glb, Uint32 i);
+float *
+RG_GLBGetMeshUVCoord (GLB *glb, Uint32 i, Uint32 *len);
+
+float *
+RG_GLBGetMeshPositions (GLB *glb, Uint32 i, Uint32 *len);
+
+Uint16 *
+RG_GLBGetMeshIndices (GLB *glb, Uint32 i, Uint32 *len);
 
 #ifdef __cplusplus
 }

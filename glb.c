@@ -19,14 +19,10 @@
 #define MESH_PRIMITIVE_TYPE_POSITION			0
 #define MESH_PRIMITIVE_TYPE_NORMAL				1
 #define MESH_PRIMITIVE_TYPE_TANGENT				2
-#define MESH_PRIMITIVE_TYPE_TEXTCOORD_0			3
+#define MESH_PRIMITIVE_TYPE_TEXCOORD_0			3
 
 #define BUFFERVIEW_TARGET_ARRAY_BUFFER			34962
 #define BUFFERVIEW_TARGET_ELEMENT_ARRAY_BUFFER	34963
-
-typedef struct {
-	double x, y, z;
-} Position;
 
 typedef struct {
 	Uint64 bin_len;
@@ -54,8 +50,8 @@ typedef struct
 
 typedef struct
 {
-	Uint64 buffer_view_index;
-	Uint64 element_count;
+	Uint32 buffer_view_index;
+	Uint32 element_count;
 	Uint16 component_type;
 	Uint8  type;
 } Accessor;
@@ -63,8 +59,8 @@ typedef struct
 typedef struct
 {
 	Uint32 buffer_index;
-	Uint64 byte_offset;
-	Uint64 byte_length;
+	Uint32 byte_offset;
+	Uint32 byte_length;
 	Uint8  target;
 } BufferView;
 
@@ -147,7 +143,7 @@ get_meshes (json_object *json)
 			else if (!SDL_strcasecmp ("TEXCOORD_0", name))
 			{
 				meshes[i].attrs[ca].texcoord_0 = json_object_get_uint64 (e);
-				meshes[i].attrs[ca].type = MESH_PRIMITIVE_TYPE_TEXTCOORD_0;
+				meshes[i].attrs[ca].type = MESH_PRIMITIVE_TYPE_TEXCOORD_0;
 			}
 			else
 			{
@@ -258,6 +254,8 @@ set_buffers (json_object *json, void *bin)
 		return NULL;
 	}
 	
+	SDL_Log ("Number of Buffers: %d", len);
+	
 	for (Uint64 i = 0; i < len; i++)
 	{
 		cb = json_object_array_get_idx (json, i);
@@ -357,10 +355,9 @@ RG_GLBOpen (const char *filename)
 	}
 	else
 	{
-		void *bin_data = data + sizeof (Uint32) * 5 + json_len;
+		Uint8 *bin_data = data + sizeof (Uint32) * 7 + json_len;
 		json_object *json = NULL, *object = NULL;
-		
-		bin_data += sizeof (Uint32) + sizeof (Uint32);
+
 		
 		SDL_memcpy (json_data, ((Uint32 *)data + 5), json_len);
 		json = json_tokener_parse (json_data);
@@ -418,23 +415,94 @@ RG_GLBClose (GLB *glb)
 	SDL_free (glb); glb = NULL;
 }
 
+Uint16 *
+RG_GLBGetMeshIndices (GLB *glb, Uint32 i, Uint32 *len)
+{
+	Uint8 *ret = NULL;
+	Uint32 bv, bo, b;
+	
+	if (glb->mesh_count < 1)
+	{
+		SDL_Log ("GLB doesn't have Meshes.");
+		return NULL;
+	}
+	
+	if (i > glb->mesh_count - 1)
+	{
+		SDL_Log ("Mesh index out of bounds.");
+		return NULL;
+	}
+	
+	bv = glb->meshes[i].indices_index;
+	b = glb->bufferviews[bv].buffer_index;
+	bo = glb->bufferviews[bv].byte_offset;
+	*len = glb->accessors[bv].element_count;
+
+	ret = glb->buffers[b].bin + bo;
+
+	return (Uint16 *)ret;
+}
+
 Uint32
 RG_GLBGetMeshCount (GLB *glb)
 {
 	return glb->mesh_count;
 }
 
-Position *
-RG_GLBGetMeshPositions (GLB *glb, Uint32 i)
+float *
+RG_GLBGetMeshUVCoord (GLB *glb, Uint32 i, Uint32 *len)
 {
-	Position *positions = NULL;
-	Uint8 *buff = NULL;
+	Uint8 *ret = NULL;
 	bool found = false;
 	Uint32 bv, ca;
 	
 	if (glb->mesh_count < 1)
 	{
-		SDL_Log ("GLB doesn't have any Meshes.");
+		SDL_Log ("GLB doesn't have Meshes.");
+		return NULL;
+	}
+	
+	if (i > glb->mesh_count - 1)
+	{
+		SDL_Log ("Mesh index out of bounds.");
+		return NULL;
+	}
+	
+	for (ca = 0; ca < glb->meshes[i].attr_count; ca++)
+	{
+		if (glb->meshes[i].attrs[ca].type == MESH_PRIMITIVE_TYPE_TEXCOORD_0)
+		{
+			bv = glb->meshes[i].attrs[ca].texcoord_0;
+			found = true;
+			break;
+		}
+	}
+	
+	if (!found)
+	{
+		SDL_Log ("No UV data found in mesh.");
+		return NULL;
+	}
+	
+	Uint32 b = glb->bufferviews[bv].buffer_index;
+	Uint32 bo = glb->bufferviews[bv].byte_offset;
+	*len = glb->accessors[bv].element_count;
+
+	ret = glb->buffers[b].bin + bo;
+
+	return (float *)ret;
+}
+
+float *
+RG_GLBGetMeshPositions (GLB *glb, Uint32 i, Uint32 *len)
+{
+	Uint8 *ret = NULL;
+	bool found = false;
+	Uint32 bv, ca;
+	
+	if (glb->mesh_count < 1)
+	{
+		SDL_Log ("GLB doesn't have Meshes.");
 		return NULL;
 	}
 	
@@ -461,19 +529,10 @@ RG_GLBGetMeshPositions (GLB *glb, Uint32 i)
 	}
 	
 	Uint32 b = glb->bufferviews[bv].buffer_index;
-	Uint64 bo = glb->bufferviews[bv].byte_offset;
-	Uint64 len = (glb->bufferviews[bv].byte_length / 12) / 3;
-	
-	SDL_Log ("MESH NAME: %s", glb->meshes[i].name);
-	SDL_Log ("POS OFFSET: %d", bo);
-	SDL_Log ("POS LEN: %d", len);
-	
-	SDL_Log ("SIZE OF DOUBLE: %d", sizeof (float));
-	
-	buff = ((Uint8 *)glb->buffers[b].bin + bo);
-	
-	for (bo = 0; bo < glb->buffers[b].bin_len; bo += 3)
-		SDL_Log ("X: %f Y: %f Z: %f", *((float *)buff + bo), *((float *)buff + bo + 1), *((float *)buff + bo + 2));
+	Uint32 bo = glb->bufferviews[bv].byte_offset;
+	*len = glb->accessors[bv].element_count;
 
-	return positions;
+	ret = glb->buffers[b].bin + bo;
+
+	return (float *)ret;
 }

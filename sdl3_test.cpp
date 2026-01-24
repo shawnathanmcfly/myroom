@@ -31,8 +31,9 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 	Context *context = nullptr;
 	Actions *actions = nullptr;
 	vector<Action> action_list;
-	vector<Vertex> vertex_list;
-	vector<Uint16> indice_list;
+	Uint32 vertex_count = 0, indice_count = 0;
+	Vertex *vertex_list = nullptr;
+	Uint16 *indice_list = nullptr;
 	
 	RG_SetMetadata (
 		"https://www.retardedgames.com",
@@ -86,8 +87,40 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 	GLB *faggit_car = RG_GLBOpen  ("sedan-sports.glb");
 	if (faggit_car)
 	{
-		SDL_Log ("MESH COUNT: %d", RG_GLBGetMeshCount (faggit_car));
-		Position *positions = RG_GLBGetMeshPositions (faggit_car, 0);
+		Uint32 len = 0;
+		float *uvs = RG_GLBGetMeshUVCoord (faggit_car, 0, &len);
+		float *pos = RG_GLBGetMeshPositions (faggit_car, 0, &len);
+		
+		//len /= 3;
+		vertex_list = (Vertex *)SDL_malloc (sizeof (Vertex) * len);
+		vertex_count = len;
+		
+		vec2s lookup[] = {
+			{0.0f, 1.0f-0.0f},
+			{1.0f, 1.0f-0.0f},
+			{0.0f, 1.0f-1.0f},
+			{1.0f, 1.0f-1.0f},
+		};
+		
+		for (Uint32 i = 0, uvi = 0; i < len; i++, uvi++)
+		{
+			if (uvi > 3) uvi = 0;
+			
+			vertex_list[i].pos.x = pos[i*3];
+			vertex_list[i].pos.y = pos[i*3+1];
+			vertex_list[i].pos.z = pos[i*3+2];
+			
+			//default color
+			vertex_list[i].color = RGBA{255,255,255,255};
+			
+			//should fix this later
+			SDL_memcpy (&(vertex_list[i].uv), (vec2s *)(&lookup[uvi]), sizeof (float)*2);
+			
+		}
+		
+		indice_list = RG_GLBGetMeshIndices (faggit_car, 0, &len);
+		indice_count = len;
+		SDL_Log ("INDICE COUNT: %d", indice_count);
 	}
 	
 	
@@ -95,8 +128,8 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 	if (!surface)
 		SDL_Log ("ERROR: %s", SDL_GetError ());
 	
-	Uint32 verticeBuffSize = vertex_list.size () * sizeof (Vertex);
-	Uint32 indexBuffSize = indice_list.size () * sizeof (Uint16);
+	Uint32 verticeBuffSize = sizeof (Vertex) * vertex_count;
+	Uint32 indexBuffSize = sizeof (Uint16) * indice_count;
 	Uint32 pixelBuffSize = surface->w * surface->h * 4;
 	
 	RG_GenerateBuffers (
@@ -114,12 +147,12 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 	);
 	SDL_memcpy (
 		transferMem,
-		vertex_list.data (),
+		vertex_list,
 		verticeBuffSize
 	);
 	SDL_memcpy (
 		transferMem + verticeBuffSize,
-		indice_list.data (),
+		indice_list,
 		indexBuffSize
 	);
 	SDL_UnmapGPUTransferBuffer (context->device, context->transferBuffer);
@@ -217,6 +250,11 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 			.num_vertex_attributes = 3
 		},
 		.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+		.depth_stencil_state = {
+			.compare_op = SDL_GPU_COMPAREOP_LESS,
+			.enable_depth_test = true,
+			.enable_depth_write = true
+		},
 		.target_info = {
 			.color_target_descriptions = (SDL_GPUColorTargetDescription[]){{
 				.format = SDL_GetGPUSwapchainTextureFormat (
@@ -224,7 +262,9 @@ SDL_AppInit (void **appstate, int argc, char *argv[])
 					context->window
 				)
 			}},
-			.num_color_targets = 1
+			.num_color_targets = 1,
+			.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D24_UNORM,
+			.has_depth_stencil_target = true
 		}
 	};
 	context->pipeline = SDL_CreateGPUGraphicsPipeline (
@@ -304,6 +344,7 @@ SDL_AppIterate (void *appstate)
 	mat4s SDL_ALIGNED(16) proj;
 	mat4s SDL_ALIGNED(16) model;
 	mat4s SDL_ALIGNED(16) trans;
+	mat4s SDL_ALIGNED(16) iden;
 	UBO SDL_ALIGNED(16) ubo;
 
 	newTicks = SDL_GetTicks ();
@@ -313,14 +354,14 @@ SDL_AppIterate (void *appstate)
 
 	SDL_GetWindowSize (context->window, &winWidth, &winHeight);
 
-	vec3s SDL_ALIGNED(8) trans_vec = vec3s{context->x, context->y, context->z};
-	vec3s SDL_ALIGNED(8) rot_vec = vec3s{1.0f, 1.0f, 0.0f};
+	vec3s SDL_ALIGNED(8) trans_vec = vec3s{context->x, context->y-0.90, context->z};
+	vec3s SDL_ALIGNED(8) rot_vec = vec3s{0.0f, 1.0f, 0.0f};
 	proj = glms_perspective (glm_rad (90.0f), winWidth / winHeight, 0.0001f, 1000);
 	trans = glms_translate_make (trans_vec);
 	model = glms_rotate_make (rotation, rot_vec);
+	iden = glms_mat4_identity();
 
-
-	ubo.mvp = glms_mat4_mulN((mat4s *[]){ &proj, &trans, &model}, 3);
+	ubo.mvp = glms_mat4_mulN((mat4s *[]){ &proj, &iden, &model}, 3);
 
 	SDL_GPUCommandBuffer *cbuf = SDL_AcquireGPUCommandBuffer (context->device);
 	if (!cbuf)
@@ -343,18 +384,25 @@ SDL_AppIterate (void *appstate)
 	
 	if (swapTexture)
 	{
-		
 		SDL_GPUColorTargetInfo colorTargetInfo = {0};
 		colorTargetInfo.texture = swapTexture;
 		colorTargetInfo.clear_color = SDL_FColor {0.0f, 0.0f, 0.3f, 1.0f};
 		colorTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
 		colorTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
 		
+		SDL_GPUDepthStencilTargetInfo depthTargetInfo = {0};
+		depthTargetInfo.clear_depth = 1;
+		depthTargetInfo.texture = context->depthBuffer;
+		depthTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
+		depthTargetInfo.store_op = SDL_GPU_STOREOP_DONT_CARE;
+		
+		
+		
 		SDL_GPURenderPass *renderPass = SDL_BeginGPURenderPass (
 			cbuf,
 			&colorTargetInfo,
 			1,
-			nullptr
+			&depthTargetInfo
 		);
 		SDL_BindGPUGraphicsPipeline (renderPass, context->pipeline);
 		
@@ -371,7 +419,7 @@ SDL_AppIterate (void *appstate)
 		
 		//Draw the shit!
 		//SDL_DrawGPUPrimitives (renderPass, 3, 1, 0, 0);
-		SDL_DrawGPUIndexedPrimitives (renderPass, 6264, 1, 0, 0, 0);
+		SDL_DrawGPUIndexedPrimitives (renderPass, 2136, 1, 0, 0, 0);
 		SDL_EndGPURenderPass (renderPass);
 	}
 	
